@@ -12,7 +12,7 @@ Inputs and Outputs: Command name: spend
 Rules:
     1: Store amounts as integer, not float (12,50 dollar becomes 1250 cent)
     2: Data is kept in local JSON or sqlite file. File path comes from .env file
-    3: Reject 0 or negative, invalid dates and unknown category with exit code 2 and clear message
+    3: Reject 0 or negative, invalid dates with exit code 2 and clear message
     4: Writes must not corrupt the file if the program is interrupted (write to a temp file, then rename, or use SQLite transactions).
 
 Acceptance Criteria:
