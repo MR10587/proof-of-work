@@ -64,7 +64,13 @@ def test_report_expenses(db):
 
     result = report_expenses(db, "2026-11")
 
-    assert result == {"total_cents": 2500, "categories": [{"name": "Sport", "total_cents": 1500}, {"name": "Food", "total_cents": 1000}]}
+    assert result == {
+        "total_cents": 2500,
+        "categories": [
+            {"name": "Sport", "total_cents": 1500},
+            {"name": "Food", "total_cents": 1000},
+        ],
+    }
 
 
 def test_delete_expense(db):
