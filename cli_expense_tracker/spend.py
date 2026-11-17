@@ -1,7 +1,51 @@
 import csv
+import argparse
+from decimal import Decimal, InvalidOperation
 from datetime import date as date_type
 import sys
 from database import get_connection, initialize_database
+
+
+def parse_price_to_cents(value):
+    try:
+        price = Decimal(value)
+    except (InvalidOperation, TypeError, ValueError) as error:
+        raise ValueError(f"Invalid price: {value}") from error
+
+    if not price.is_finite():
+        raise ValueError(f"Invalid price: {value}")
+
+    cents = price * 100
+    if cents != cents.to_integral_value():
+        raise ValueError("Price must not contain fractions of a cent")
+    if cents <= 0:
+        raise ValueError("Price must be greater than zero")
+
+    return int(cents)
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(prog="spend")
+    parser.add_argument("spend", choices=("spend",), help="command name")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    add_parser = subparsers.add_parser("add", help="add an expense")
+    add_parser.add_argument("price", help="price in dollars")
+    add_parser.add_argument(
+        "--cat",
+        "--category",
+        dest="category",
+        required=True,
+        help="expense category",
+    )
+    add_parser.add_argument(
+        "--note",
+        nargs="+",
+        default=[],
+        help="expense note",
+    )
+    add_parser.add_argument("--date", required=True, help="expense date (YYYY-MM-DD)")
+    return parser
 
 
 def _validate_date(value):
@@ -111,16 +155,38 @@ def export_to_csv(connection, output_path):
         writer.writerows(rows)
 
 
-def main():
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    if args.command != "add":
+        parser.error("Unknown command")
+
+    try:
+        price_cents = parse_price_to_cents(args.price)
+    except ValueError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 2
+
     connection = get_connection()
     try:
         initialize_database(connection)
-
-        if len(sys.argv) > 1:
-            print(sys.argv[1])
+        try:
+            result = add_expense(
+                connection,
+                price_cents=price_cents,
+                category=args.category,
+                note=" ".join(args.note),
+                date=args.date,
+            )
+        except ValueError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 2
+        print(result)
+        return 0
     finally:
         connection.close()
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

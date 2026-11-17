@@ -1,5 +1,6 @@
 import sqlite3
 import pytest
+import sys
 
 
 @pytest.fixture
@@ -26,7 +27,105 @@ from spend import (
     report_expenses,
     delete_expense,
     export_to_csv,
+    parse_price_to_cents,
+    main,
 )
+
+
+@pytest.mark.parametrize(
+    ("price", "expected_cents"),
+    [
+        ("0.10", 10),
+        ("0.20", 20),
+        ("1", 100),
+        ("5", 500),
+    ],
+)
+def test_parse_price_to_cents(price, expected_cents):
+    assert parse_price_to_cents(price) == expected_cents
+
+
+@pytest.mark.parametrize("price", ["0", "-5", "invalid", "1.001", "NaN"])
+def test_parse_price_to_cents_rejects_invalid_values(price):
+    with pytest.raises(ValueError):
+        parse_price_to_cents(price)
+
+
+def test_main_add_prints_new_expense(monkeypatch, capsys):
+    connection = sqlite3.connect(":memory:")
+    monkeypatch.setattr("spend.get_connection", lambda: connection)
+    captured_arguments = {}
+
+    def fake_add_expense(connection, price_cents, category, note, date):
+        captured_arguments.update(
+            price_cents=price_cents,
+            category=category,
+            note=note,
+            date=date,
+        )
+        return {
+            "id": 1,
+            "price_cents": price_cents,
+            "category": category,
+            "note": note,
+            "date": date,
+        }
+
+    monkeypatch.setattr("spend.add_expense", fake_add_expense)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "spend.py",
+            "spend",
+            "add",
+            "0.10",
+            "--cat",
+            "Food",
+            "--note",
+            "My",
+            "breakfast",
+            "--date",
+            "2026-11-16",
+        ],
+    )
+
+    exit_code = main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "'price_cents': 10" in captured.out
+    assert captured_arguments == {
+        "price_cents": 10,
+        "category": "Food",
+        "note": "My breakfast",
+        "date": "2026-11-16",
+    }
+
+
+def test_main_add_invalid_price_uses_exit_code_2(monkeypatch, capsys):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "spend.py",
+            "spend",
+            "add",
+            "-5",
+            "--cat",
+            "Food",
+            "--note",
+            "Snack",
+            "--date",
+            "2026-11-16",
+        ],
+    )
+
+    exit_code = main()
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "Price must be greater than zero" in captured.err
 
 
 def test_add_expense(db):
