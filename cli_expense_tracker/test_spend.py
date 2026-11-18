@@ -29,6 +29,7 @@ from spend import (
     export_to_csv,
     parse_price_to_cents,
     main,
+    _validate_month
 )
 
 
@@ -49,6 +50,12 @@ def test_parse_price_to_cents(price, expected_cents):
 def test_parse_price_to_cents_rejects_invalid_values(price):
     with pytest.raises(ValueError):
         parse_price_to_cents(price)
+
+
+@pytest.mark.parametrize("month", ["2026-13", "2026-02-30"])
+def test__validate_month_rejects_invalid_month(month):
+    with pytest.raises(ValueError):
+        _validate_month(month)
 
 
 def test_main_add_prints_new_expense(monkeypatch, capsys):
@@ -126,6 +133,35 @@ def test_main_add_invalid_price_uses_exit_code_2(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "Price must be greater than zero" in captured.err
+
+
+def test_main_list_prints_expenses(monkeypatch, capsys):
+    connection = sqlite3.connect(":memory:")
+    monkeypatch.setattr("spend.get_connection", lambda: connection)
+    expenses = [{
+        "id": 1,
+        "price_cents": 1000,
+        "category": "Food",
+        "note": "Breakfast",
+        "date": "2026-11-03",
+        }]
+
+    def fake_list_expenses(connection, month):
+        month = _validate_month(month)
+
+        for expense in expenses:
+            if expense["date"].startswith(month + "-"):
+                return expense
+
+    monkeypatch.setattr("spend.list_expenses", fake_list_expenses)
+    monkeypatch.setattr(sys, "argv", ["spend.py", "spend", "list", "--month", "2026-11"])
+
+    exit_code = main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out.strip() == str(expenses[0])
+
 
 
 def test_add_expense(db):

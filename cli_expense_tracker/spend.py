@@ -24,11 +24,7 @@ def parse_price_to_cents(value):
     return int(cents)
 
 
-def build_parser():
-    parser = argparse.ArgumentParser(prog="spend")
-    parser.add_argument("spend", choices=("spend",), help="command name")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
+def add_sub_parser(subparsers):
     add_parser = subparsers.add_parser("add", help="add an expense")
     add_parser.add_argument("price", help="price in dollars")
     add_parser.add_argument(
@@ -45,6 +41,25 @@ def build_parser():
         help="expense note",
     )
     add_parser.add_argument("--date", required=True, help="expense date (YYYY-MM-DD)")
+
+    return subparsers
+
+
+def list_sub_parser(subparsers):
+    list_parser = subparsers.add_parser("list", help="list expenses by month")
+    list_parser.add_argument("--month", required=True, help="expense month")
+
+    return subparsers
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(prog="spend")
+    parser.add_argument("spend", choices=("spend",), help="command name")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    add_parser = add_sub_parser(subparsers)
+    list_parser = list_sub_parser(subparsers)
+
     return parser
 
 
@@ -159,33 +174,53 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    if args.command != "add":
-        parser.error("Unknown command")
-
-    try:
-        price_cents = parse_price_to_cents(args.price)
-    except ValueError as error:
-        print(f"Error: {error}", file=sys.stderr)
-        return 2
-
-    connection = get_connection()
-    try:
-        initialize_database(connection)
+    if args.command == "add":
         try:
-            result = add_expense(
-                connection,
-                price_cents=price_cents,
-                category=args.category,
-                note=" ".join(args.note),
-                date=args.date,
-            )
+            price_cents = parse_price_to_cents(args.price)
         except ValueError as error:
             print(f"Error: {error}", file=sys.stderr)
             return 2
-        print(result)
-        return 0
-    finally:
-        connection.close()
+
+        connection = get_connection()
+        try:
+            initialize_database(connection)
+            try:
+                result = add_expense(
+                    connection,
+                    price_cents=price_cents,
+                    category=args.category,
+                    note=" ".join(args.note),
+                    date=args.date,
+                )
+            except ValueError as error:
+                print(f"Error: {error}", file=sys.stderr)
+                return 2
+            print(result)
+            return 0
+        finally:
+            connection.close()
+
+    elif args.command == "list":
+        try:
+            month = _validate_month(args.month)
+        except ValueError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 2
+
+        connection = get_connection()
+
+        try:
+            initialize_database(connection)
+
+            try:
+                result = list_expenses(connection, month)
+            except ValueError as error:
+                print(f"Error: {error}", file=sys.stderr)
+                return 2
+            print(result)
+            return 0
+        finally:
+            connection.close()
 
 
 if __name__ == "__main__":
