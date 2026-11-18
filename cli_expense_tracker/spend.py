@@ -52,6 +52,13 @@ def list_sub_parser(subparsers):
     return subparsers
 
 
+def report_sub_parser(subparsers):
+    report_parser = subparsers.add_parser("report", help="report expenses by month")
+    report_parser.add_argument("--month", required=True, help="expense month")
+
+    return subparsers
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="spend")
     parser.add_argument("spend", choices=("spend",), help="command name")
@@ -59,6 +66,7 @@ def build_parser():
 
     add_parser = add_sub_parser(subparsers)
     list_parser = list_sub_parser(subparsers)
+    report_parser = report_sub_parser(subparsers)
 
     return parser
 
@@ -214,6 +222,28 @@ def main(argv=None):
 
             try:
                 result = list_expenses(connection, month)
+            except ValueError as error:
+                print(f"Error: {error}", file=sys.stderr)
+                return 2
+            print(result)
+            return 0
+        finally:
+            connection.close()
+
+    elif args.command == "report":
+        try:
+            month = _validate_month(args.month)
+        except ValueError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 2
+
+        connection = get_connection()
+
+        try:
+            initialize_database(connection)
+
+            try:
+                result = report_expenses(connection, month)
             except ValueError as error:
                 print(f"Error: {error}", file=sys.stderr)
                 return 2

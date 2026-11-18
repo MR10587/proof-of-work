@@ -208,6 +208,77 @@ def test_report_expenses(db):
     }
 
 
+def test_report_expenses_empty_month(db):
+    result = report_expenses(db, "2026-11")
+
+    assert result == {"total_cents": 0, "categories": []}
+
+
+def test_report_expenses_sorts_categories_by_total_then_name(db):
+    db.execute("""
+            INSERT INTO expenses VALUES
+                (1, 1000, "Sport", "Gym", "2026-11-12"),
+                (2, 1000, "Food", "Lunch", "2026-11-13"),
+                (3, 500, "Travel", "Taxi", "2026-11-14")
+            """)
+
+    result = report_expenses(db, "2026-11")
+
+    assert result == {
+        "total_cents": 2500,
+        "categories": [
+            {"name": "Food", "total_cents": 1000},
+            {"name": "Sport", "total_cents": 1000},
+            {"name": "Travel", "total_cents": 500},
+        ],
+    }
+
+
+def test_main_report_prints_report(monkeypatch, capsys):
+    connection = sqlite3.connect(":memory:")
+    monkeypatch.setattr("spend.get_connection", lambda: connection)
+    captured_month = {}
+    report = {
+        "total_cents": 2500,
+        "categories": [
+            {"name": "Sport", "total_cents": 1500},
+            {"name": "Food", "total_cents": 1000},
+        ],
+    }
+
+    def fake_report_expenses(connection, month):
+        captured_month["month"] = month
+        return report
+
+    monkeypatch.setattr("spend.report_expenses", fake_report_expenses)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["spend.py", "spend", "report", "--month", "2026-11"],
+    )
+
+    exit_code = main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured_month == {"month": "2026-11"}
+    assert captured.out.strip() == str(report)
+
+
+def test_main_report_invalid_month(monkeypatch, capsys):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["spend.py", "spend", "report", "--month", "2026-13"],
+    )
+
+    exit_code = main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert "Invalid month: 2026-13" in captured.err
+
+
 def test_delete_expense(db):
     db.execute("""
             INSERT INTO expenses VALUES
