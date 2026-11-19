@@ -29,7 +29,7 @@ from spend import (
     export_to_csv,
     parse_price_to_cents,
     main,
-    _validate_month
+    _validate_month,
 )
 
 
@@ -138,13 +138,15 @@ def test_main_add_invalid_price_uses_exit_code_2(monkeypatch, capsys):
 def test_main_list_prints_expenses(monkeypatch, capsys):
     connection = sqlite3.connect(":memory:")
     monkeypatch.setattr("spend.get_connection", lambda: connection)
-    expenses = [{
-        "id": 1,
-        "price_cents": 1000,
-        "category": "Food",
-        "note": "Breakfast",
-        "date": "2026-11-03",
-        }]
+    expenses = [
+        {
+            "id": 1,
+            "price_cents": 1000,
+            "category": "Food",
+            "note": "Breakfast",
+            "date": "2026-11-03",
+        }
+    ]
 
     def fake_list_expenses(connection, month):
         month = _validate_month(month)
@@ -154,7 +156,9 @@ def test_main_list_prints_expenses(monkeypatch, capsys):
                 return expense
 
     monkeypatch.setattr("spend.list_expenses", fake_list_expenses)
-    monkeypatch.setattr(sys, "argv", ["spend.py", "spend", "list", "--month", "2026-11"])
+    monkeypatch.setattr(
+        sys, "argv", ["spend.py", "spend", "list", "--month", "2026-11"]
+    )
 
     exit_code = main()
     captured = capsys.readouterr()
@@ -162,6 +166,110 @@ def test_main_list_prints_expenses(monkeypatch, capsys):
     assert exit_code == 0
     assert captured.out.strip() == str(expenses[0])
 
+
+def test_main_delete_expense(monkeypatch, capsys):
+    connection = sqlite3.connect(":memory:")
+
+    monkeypatch.setattr("spend.get_connection", lambda: connection)
+
+    expenses = [
+        {
+            "id": 1,
+            "price_cents": 1000,
+            "category": "Food",
+            "note": "Breakfast",
+            "date": "2026-11-03",
+        }
+    ]
+
+    def fake_delete_expense(connection, id):
+        id = int(id)
+
+        for expense in expenses:
+            if expense["id"] == id:
+                expenses.remove(expense)
+                return 1
+
+        return 0
+
+    monkeypatch.setattr("spend.delete_expense", fake_delete_expense)
+    monkeypatch.setattr(sys, "argv", ["spend.py", "spend", "delete", "1"])
+
+    exit_code = main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.out.strip() == "1"
+
+
+def test_main_delete_expense_missing_id(monkeypatch, capsys):
+    connection = sqlite3.connect(":memory:")
+
+    monkeypatch.setattr("spend.get_connection", lambda: connection)
+
+    expenses = [
+        {
+            "id": 1,
+            "price_cents": 1000,
+            "category": "Food",
+            "note": "Breakfast",
+            "date": "2026-11-03",
+        }
+    ]
+
+    def fake_delete_expense(connection, id):
+        id = int(id)
+
+        for expense in expenses:
+            if expense["id"] == id:
+                expenses.remove(expense)
+                return 1
+
+        return 0
+
+    monkeypatch.setattr("spend.delete_expense", fake_delete_expense)
+    monkeypatch.setattr(sys, "argv", ["spend.py", "spend", "delete", "2"])
+
+    exit_code = main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert captured.out.strip() == "0"
+
+
+@pytest.mark.parametrize("id", ["0", "-1"])
+def test_main_delete_expense_invalid_integer(monkeypatch, capsys, id):
+    connection = sqlite3.connect(":memory:")
+
+    monkeypatch.setattr("spend.get_connection", lambda: connection)
+
+    expenses = [
+        {
+            "id": 1,
+            "price_cents": 1000,
+            "category": "Food",
+            "note": "Breakfast",
+            "date": "2026-11-03",
+        }
+    ]
+
+    def fake_delete_expense(connection, id):
+        id = int(id)
+
+        for expense in expenses:
+            if expense["id"] == id:
+                expenses.remove(expense)
+                return 1
+
+        return 0
+
+    monkeypatch.setattr("spend.delete_expense", fake_delete_expense)
+    monkeypatch.setattr(sys, "argv", ["spend.py", "spend", "delete", id])
+
+    exit_code = main()
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
 
 
 def test_add_expense(db):

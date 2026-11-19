@@ -59,6 +59,13 @@ def report_sub_parser(subparsers):
     return subparsers
 
 
+def delete_sub_parser(subparsers):
+    delete_parser = subparsers.add_parser("delete", help="delete expense by id")
+    delete_parser.add_argument("id", help="id of expense")
+
+    return subparsers
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="spend")
     parser.add_argument("spend", choices=("spend",), help="command name")
@@ -67,6 +74,7 @@ def build_parser():
     add_parser = add_sub_parser(subparsers)
     list_parser = list_sub_parser(subparsers)
     report_parser = report_sub_parser(subparsers)
+    delete_parser = delete_sub_parser(subparsers)
 
     return parser
 
@@ -248,6 +256,30 @@ def main(argv=None):
                 print(f"Error: {error}", file=sys.stderr)
                 return 2
             print(result)
+            return 0
+        finally:
+            connection.close()
+
+    elif args.command == "delete":
+        try:
+            id = int(args.id)
+        except (ValueError, TypeError):
+            print("Invalid id")
+            return 2
+
+        if id <= 0:
+            return 2
+
+        connection = get_connection()
+
+        try:
+            initialize_database(connection)
+
+            result = delete_expense(connection, id)
+
+            print(result)
+            if result == 0:
+                return 2
             return 0
         finally:
             connection.close()
