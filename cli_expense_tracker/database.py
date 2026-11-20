@@ -22,14 +22,18 @@ def get_connection():
 
 
 def initialize_database(connection):
-    connection.execute("""
-            CREATE TABLE IF NOT EXISTS expenses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                price_cents INTEGER NOT NULL,
-                category TEXT NOT NULL,
-                note TEXT,
-                date TEXT NOT NULL
-            )
-        """)
+    try:
+        with connection:
+            connection.execute("""
+                    CREATE TABLE IF NOT EXISTS expenses (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        price_cents INTEGER NOT NULL,
+                        category TEXT NOT NULL,
+                        note TEXT,
+                        date TEXT NOT NULL
+                    )
+                """)
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
 
     connection.commit()

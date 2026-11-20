@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import date as date_type
 import sys
 from database import get_connection, initialize_database
+import sqlite3
 
 
 def parse_price_to_cents(value):
@@ -66,6 +67,13 @@ def delete_sub_parser(subparsers):
     return subparsers
 
 
+def export_sub_parser(subparsers):
+    export_parser = subparsers.add_parser("export", help="export expenses as csv")
+    export_parser.add_argument("--format", help="Format of file")
+
+    return subparsers
+
+
 def build_parser():
     parser = argparse.ArgumentParser(prog="spend")
     parser.add_argument("spend", choices=("spend",), help="command name")
@@ -75,6 +83,7 @@ def build_parser():
     list_parser = list_sub_parser(subparsers)
     report_parser = report_sub_parser(subparsers)
     delete_parser = delete_sub_parser(subparsers)
+    export_parser = export_sub_parser(subparsers)
 
     return parser
 
@@ -106,23 +115,27 @@ def add_expense(connection, price_cents, category, note, date):
         raise ValueError("Category must not be empty")
 
     _validate_date(date)
-    cursor = connection.execute(
-        """
-        INSERT INTO expenses (price_cents, category, note, date)
-        VALUES (?, ?, ?, ?)
-        """,
-        (price_cents, category, note, date),
-    )
-    connection.commit()
 
-    row = connection.execute(
-        """
-        SELECT id, price_cents, category, note, date
-        FROM expenses
-        WHERE id = ?
-        """,
-        (cursor.lastrowid,),
-    ).fetchone()
+    try:
+        with connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO expenses (price_cents, category, note, date)
+                VALUES (?, ?, ?, ?)
+                """,
+                (price_cents, category, note, date),
+            )
+
+            row = connection.execute(
+                """
+                SELECT id, price_cents, category, note, date
+                FROM expenses
+                WHERE id = ?
+                """,
+                (cursor.lastrowid,),
+            ).fetchone()
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
 
     columns = ("id", "price_cents", "category", "note", "date")
 
@@ -131,15 +144,20 @@ def add_expense(connection, price_cents, category, note, date):
 
 def list_expenses(connection, month):
     month = _validate_month(month)
-    cursor = connection.execute(
-        """
-        SELECT id, price_cents, category, note, date
-        FROM expenses
-        WHERE date LIKE ?
-        ORDER BY price_cents DESC, id DESC
-        """,
-        (f"{month}-%",),
-    )
+    try:
+        with connection:
+            cursor = connection.execute(
+                """
+                SELECT id, price_cents, category, note, date
+                FROM expenses
+                WHERE date LIKE ?
+                ORDER BY price_cents DESC, id DESC
+                """,
+                (f"{month}-%",),
+            )
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+
     columns = [column[0] for column in cursor.description]
     return [_row_to_dict(columns, row) for row in cursor.fetchall()]
 
@@ -150,16 +168,21 @@ def report_expenses(connection, month):
         "SELECT COALESCE(SUM(price_cents), 0) FROM expenses WHERE date LIKE ?",
         (f"{month}-%",),
     ).fetchone()[0]
-    categories = connection.execute(
-        """
-        SELECT category AS name, SUM(price_cents) AS total_cents
-        FROM expenses
-        WHERE date LIKE ?
-        GROUP BY category
-        ORDER BY total_cents DESC, name ASC
-        """,
-        (f"{month}-%",),
-    ).fetchall()
+    try:
+        with connection:
+            categories = connection.execute(
+                """
+                SELECT category AS name, SUM(price_cents) AS total_cents
+                FROM expenses
+                WHERE date LIKE ?
+                GROUP BY category
+                ORDER BY total_cents DESC, name ASC
+                """,
+                (f"{month}-%",),
+            ).fetchall()
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+
     return {
         "total_cents": total,
         "categories": [{"name": row[0], "total_cents": row[1]} for row in categories],
@@ -167,20 +190,31 @@ def report_expenses(connection, month):
 
 
 def delete_expense(connection, expense_id):
-    cursor = connection.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
-    connection.commit()
+    try:
+        with connection:
+            cursor = connection.execute(
+                "DELETE FROM expenses WHERE id = ?", (expense_id,)
+            )
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+
     return cursor.rowcount
 
 
-def export_to_csv(connection, output_path):
-    rows = connection.execute(
-        """
-        SELECT id, price_cents, category, note, date
-        FROM expenses
-        ORDER BY date ASC, id ASC
-        """
-    ).fetchall()
-    with open(output_path, "w", newline="", encoding="utf-8") as output_file:
+def export_to_csv(connection):
+    try:
+        with connection:
+            rows = connection.execute(
+                """
+                SELECT id, price_cents, category, note, date
+                FROM expenses
+                ORDER BY date ASC, id ASC
+                """
+            ).fetchall()
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+
+    with open("expenses.csv", "w", newline="", encoding="utf-8") as output_file:
         writer = csv.writer(output_file)
         writer.writerow(("id", "price_cents", "category", "note", "date"))
         writer.writerows(rows)
@@ -281,6 +315,17 @@ def main(argv=None):
             if result == 0:
                 return 2
             return 0
+        finally:
+            connection.close()
+
+    elif args.command == "export" and args.format == "csv":
+        connection = get_connection()
+
+        try:
+            with connection:
+                export_to_csv(connection)
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
         finally:
             connection.close()
 
