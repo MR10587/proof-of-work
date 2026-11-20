@@ -9,13 +9,56 @@ Main commands are:
 Project is created using python and sqlite database
 Testing covered by pytest library
 
-How you can start:
-    1- clone the repository in your computer by running this command on terminal(git clone https://github.com/MR10587/proof-of-work)
-    2- change directory into cli_expense_tracker by this command: (cd cli_expense_tracker)
-    3- First of all, make sure to run (pip install requirements.txt) to install necessary packages
-    4- create .env file in root directory and copy content of .env.example to this file. Then create expenses.db in your root directory. Then copy your .db file's path by right click + copy path. Then in .env file delete <database_url> after = sign and paste your copied path.
-    5- You can now run commands to start. Start with adding expense: Paste this into terminal (py spend.py spend add 100 --category Food --note Breakfast --date 2026-03-08) You can change price, category name, note text, and date but make sure to keep words with -- at the beginning.
-    6- To see your monthly expenses history, type this command into terminal (py spend.py spend list --month 2026-03) because you added expense for march I type 03, you can enter which date you want, but make sure it is in the format of YEAR-MONTH, not include days
-    7- To see total expense by category and overall run this: (py spend.py spend report --month 2026-03)
-    8- Before deleting lets try exporting as csv, run this command: (py spend.py spend export --format CSV), this command use your data in database to create expenses.csv file inside root directory
-    9- To delete your expense data, just enter this command (py spend.py spend delete 1) This will print count of expenses deleted(which is 1) to the screen.
+<h2>🚀 Getting Started</h2>
+
+<ol>
+  <li>
+    <p><strong>Clone the repository</strong> to your computer by running this command in your terminal:</p>
+    <pre><code>git clone https://github.com</code></pre>
+  </li>
+
+  <li>
+    <p><strong>Navigate into the project directory:</strong></p>
+    <pre><code>cd proof-of-work/cli_expense_tracker</code></pre>
+  </li>
+
+  <li>
+    <p><strong>Install the required packages:</strong></p>
+    <pre><code>pip install -r requirements.txt</code></pre>
+  </li>
+
+  <li>
+    <p><strong>Set up your environment and database:</strong></p>
+    <ul>
+      <li>Create a <code>.env</code> file in the <code>cli_expense_tracker</code> root directory and copy the contents of <code>.env.example</code> into it.</li>
+      <li>Create an empty file named <code>expenses.db</code> in the same root directory.</li>
+      <li>Right-click <code>expenses.db</code> and select <strong>Copy Path</strong>.</li>
+      <li>Open your <code>.env</code> file, replace <code>&lt;database_url&gt;</code> after the <code>=</code> sign with your copied path, and save the file.</li>
+    </ul>
+  </li>
+
+  <li>
+    <p><strong>Add your first expense:</strong> Run the following command in your terminal (you can customize the amount, category, note, and date, but make sure to keep the <code>--</code> flags):</p>
+    <pre><code>py spend.py spend add 100 --category Food --note Breakfast --date 2026-03-08</code></pre>
+  </li>
+
+  <li>
+    <p><strong>View your monthly expense history:</strong> Filter by month using the <code>YYYY-MM</code> format (do not include the day):</p>
+    <pre><code>py spend.py spend list --month 2026-03</code></pre>
+  </li>
+
+  <li>
+    <p><strong>Generate a monthly report:</strong> View your total spending broken down by category and overall for a specific month:</p>
+    <pre><code>py spend.py spend report --month 2026-03</code></pre>
+  </li>
+
+  <li>
+    <p><strong>Export your data to CSV:</strong> Before deleting anything, back up your database records into an <code>expenses.csv</code> file in your root directory:</p>
+    <pre><code>py spend.py spend export --format CSV</code></pre>
+  </li>
+
+  <li>
+    <p><strong>Delete an expense:</strong> Remove an entry by its ID (this will print the number of deleted records, e.g., <code>1</code>, to the screen):</p>
+    <pre><code>py spend.py spend delete 1</code></pre>
+  </li>
+</ol>
