@@ -14,7 +14,7 @@ Testing covered by pytest library
 <ol>
   <li>
     <p><strong>Clone the repository</strong> to your computer by running this command in your terminal:</p>
-    <pre><code>git clone https://github.com</code></pre>
+    <pre><code>git clone https://github.com/MR10587/proof-of-work</code></pre>
   </li>
 
   <li>
